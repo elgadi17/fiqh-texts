@@ -8,7 +8,7 @@ on:
       - "*.txt"
       - "*.doc"
       - "*.docx"
-      - "tools/clean.py"
+      - "tools/*.py"
   workflow_dispatch:
 
 permissions:
@@ -38,15 +38,18 @@ jobs:
       - name: تشغيل التنقيح
         run: python3 tools/clean.py
 
-      - name: حفظ النسخة المنقحة
+      - name: تقسيم الكتب إلى مسائل
+        run: python3 tools/segment.py
+
+      - name: حفظ النسخة المنقحة والفهرس
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
-          git add -A منقحة
+          git add -A منقحة فهرس
           if git diff --cached --quiet; then
             echo "لا تغيير"
           else
-            git commit -m "تحديث النسخة المنقحة تلقائيًا"
+            git commit -m "تحديث النسخة المنقحة وفهرس المسائل تلقائيًا"
             git pull --rebase -q origin main
             git push origin HEAD:main
           fi
