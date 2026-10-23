@@ -1,0 +1,52 @@
+name: تنقيح الكتب
+
+# يعمل تلقائيًا كلما رُفع كتاب جديد أو عُدّل كتاب في جذر المستودع
+on:
+  push:
+    branches: [main]
+    paths:
+      - "*.txt"
+      - "*.doc"
+      - "*.docx"
+      - "tools/clean.py"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: clean
+  cancel-in-progress: false
+
+jobs:
+  clean:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: تثبيت LibreOffice لتحويل ملفات Word
+        if: hashFiles('*.doc', '*.docx') != ''
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends libreoffice-writer
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: تشغيل التنقيح
+        run: python3 tools/clean.py
+
+      - name: حفظ النسخة المنقحة
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          git add -A منقحة
+          if git diff --cached --quiet; then
+            echo "لا تغيير"
+          else
+            git commit -m "تحديث النسخة المنقحة تلقائيًا"
+            git pull --rebase -q origin main
+            git push origin HEAD:main
+          fi

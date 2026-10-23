@@ -100,10 +100,20 @@ def doc_to_text(p):
 def main():
     OUT.mkdir(exist_ok=True)
     srcs, typed = {}, set()   # ملفات Word منضدة باليد: لا تحتاج إلا توحيد الحروف
+    bad = []
     for p in sorted(ROOT.glob("*")):
         if p.name in SKIP or not p.is_file(): continue
-        if p.suffix == ".txt": srcs[p.name] = p.read_text(encoding="utf-8")
+        if p.suffix == ".txt":
+            raw = p.read_bytes()
+            try: srcs[p.name] = raw.decode("utf-8")
+            except UnicodeDecodeError: srcs[p.name] = raw.decode("cp1256", errors="replace")
         elif p.suffix in (".doc", ".docx"): srcs[p.stem + ".txt"] = doc_to_text(p); typed.add(p.stem + ".txt")
+    for k in list(srcs):   # ملف فشل فيه التعرف الضوئي: لا ينقح ويُذكر في التقرير
+        chars = re.sub(r"\s", "", srcs[k])
+        if chars and sum("؀" <= c <= "ۿ" for c in chars) / len(chars) < 0.5:
+            bad.append(k); del srcs[k]
+    for old in OUT.glob("*.txt"):   # حذف نسخ منقحة لكتب حُذفت أصولها
+        if old.name not in srcs: old.unlink()
     srcs = {k: norm_letters(v) for k, v in srcs.items()}
     vocab = build_vocab(srcs.values())
     report = {}
@@ -112,9 +122,11 @@ def main():
         out = t.replace("\u200f", "").replace("\u200e", "") if name in typed else clean(t, vocab, stats)
         (OUT / name).write_text(out, encoding="utf-8")
         report[name] = dict(stats)
+    report["ملفات غير صالحة (نص غير عربي أو تعرف ضوئي فاشل)"] = bad + sorted(SKIP)
     (OUT / "تقرير_التنقيح.json").write_text(json.dumps(report, ensure_ascii=False, indent=1), encoding="utf-8")
     tot = collections.Counter()
-    for s in report.values(): tot.update(s)
+    for s in report.values():
+        if isinstance(s, dict): tot.update(s)
     print(len(srcs), "ملفًا", dict(tot))
 
 if __name__ == "__main__":
