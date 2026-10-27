@@ -118,6 +118,8 @@ def main():
     ok, n = True, 0
     for i, book, rng, text in load_rows(Path(a.file)):
         n += 1
+        if rng and "aljam3.com" in str(rng):
+            print(f"↗ صف {i} · {book} — من كتب الجامع: لا يُقابَل هنا، وتجب مقابلته بـ get_page ({rng})"); continue
         if not book or not rng:
             print(f"✗ صف {i} — بلا كتاب أو أسطر: لا يُقابَل، فلا يُسلَّم"); ok = False; continue
         ok &= report(f"صف {i} · {book} {rng}", check(str(book), str(rng), text))
