@@ -120,7 +120,24 @@ def doc_to_text(p, tries=2, limit=180):
         finally:
             subprocess.run(["pkill", "-9", "-f", str(prof)], capture_output=True)   # قتل ما بقي معلقًا من هذه المحاولة
             shutil.rmtree(prof, ignore_errors=True)
+    if p.suffix == ".docx":   # بديل لا يعتمد على LibreOffice: فقرات document.xml سطرًا سطرًا
+        print("  استخراج النص من document.xml مباشرة", flush=True)
+        return docx_xml_text(p)
     raise RuntimeError(f"تعذر تحويل {p.name} بعد {tries} محاولات")
+
+def docx_xml_text(p):
+    import zipfile, html
+    xml = zipfile.ZipFile(p).read("word/document.xml").decode("utf-8")
+    body = xml.split("<w:body>", 1)[-1]
+    tok = re.compile(r"<w:t(?: [^>]*)?>(.*?)</w:t>|<w:tab/>|<w:br[^>]*/>", re.S)
+    lines = []
+    for para in re.findall(r"<w:p[ >].*?</w:p>|<w:p/>", body, flags=re.S):
+        out = []
+        for m in tok.finditer(para):
+            g = m.group(0)
+            out.append(html.unescape(m.group(1)) if g.startswith("<w:t") and not g.startswith("<w:tab") else ("\t" if g.startswith("<w:tab") else "\n"))
+        lines.append("".join(out))
+    return "\n".join(lines) + "\n"
 
 def main():
     OUT.mkdir(exist_ok=True)
